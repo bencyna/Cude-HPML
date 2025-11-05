@@ -66,3 +66,6 @@ matmult00 : matmult.cu  matmultKernel.h matmultKernel00.o timer.o
 
 
 
+# vecadd.cu intitializes the gpus ready for vector addition
+# vecaddKernal00 hosts the code each thread will execute 
+# the timer files are used to assess how fast the program runs

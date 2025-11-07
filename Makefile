@@ -55,6 +55,11 @@ matmultKernel00.o : matmultKernel00.cu matmultKernel.h
 matmult00 : matmult.cu  matmultKernel.h matmultKernel00.o timer.o
 	${NVCC} $< matmultKernel00.o -o $@ $(LIB) timer.o $(OPTIONS)
 
+#######################################################################
+# -------------------- Part-B Q1: CPU add two arrays --------------------
+# q1.cpp -> q1 (no CUDA libs; pure C++)
+qB1 : addTwoArrays.cpp
+	$(CXX) $(CXXFLAGS) $< -o $@
 
 #######################################################################
 ## Expanded Kernel, notice that FOOTPRINT_SIZE is redefined (from 16 to 32)

@@ -9,6 +9,9 @@
 
 SDK_INSTALL_PATH :=  /usr/local/cuda
 NVCC=$(SDK_INSTALL_PATH)/bin/nvcc
+CXX := g++
+CXXFLAGS := -O3
+
 LIB       :=  -L$(SDK_INSTALL_PATH)/lib64 -L$(SDK_INSTALL_PATH)/samples/common/lib/linux/x86_64
 #INCLUDES  :=  -I$(SDK_INSTALL_PATH)/include -I$(SDK_INSTALL_PATH)/samples/common/inc
 OPTIONS   :=  -O3 -Xcompiler -fPIC  
@@ -16,7 +19,7 @@ OPTIONS   :=  -O3 -Xcompiler -fPIC
 LDFLAGS   := -Xlinker -no-pie
 
 TAR_FILE_NAME  := BenCynaCUDA1.tar
-EXECS :=  vecadd00 matmult00 vecadd01
+EXECS :=  vecadd00 matmult00 vecadd01 qB1
 all:$(EXECS)
 
 #######################################################################
@@ -25,7 +28,7 @@ clean:
 
 #######################################################################
 tar:
-	tar -cvf $(TAR_FILE_NAME) Makefile *.h *.cu *.pdf *.txt
+	tar -cvf $(TAR_FILE_NAME) Makefile *.h *.cu *.cpp *.pdf *.txt
 #######################################################################
 
 timer.o : timer.cu timer.h

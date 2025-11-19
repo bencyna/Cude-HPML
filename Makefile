@@ -19,7 +19,7 @@ OPTIONS   :=  -O3 -Xcompiler -fPIC
 LDFLAGS   := -Xlinker -no-pie
 
 TAR_FILE_NAME  := BenCynaCUDA1.tar
-EXECS :=  vecadd00 matmult00 vecadd01 qB1 qB2
+EXECS :=  vecadd00 matmult00 vecadd01 qB1 qB2 qB3
 all:$(EXECS)
 
 #######################################################################
@@ -66,6 +66,9 @@ qB1 : addTwoArrays.cpp
 
 
 qB2 : addTwoArrays.cu
+	${NVCC} $< -o $@ $(OPTIONS)\
+
+qB2 : addTwoArraysManaged.cu
 	${NVCC} $< -o $@ $(OPTIONS)
 
 #######################################################################

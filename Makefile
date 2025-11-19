@@ -68,8 +68,10 @@ qB1 : addTwoArrays.cpp
 qB2 : addTwoArrays.cu
 	${NVCC} $< -o $@ $(OPTIONS)\
 
-qB2 : addTwoArraysManaged.cu
+qB3 : addTwoArraysManaged.cu
 	${NVCC} $< -o $@ $(OPTIONS)
+
+
 
 #######################################################################
 ## Expanded Kernel, notice that FOOTPRINT_SIZE is redefined (from 16 to 32)

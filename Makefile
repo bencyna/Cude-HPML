@@ -64,6 +64,10 @@ matmult00 : matmult.cu  matmultKernel.h matmultKernel00.o timer.o
 qB1 : addTwoArrays.cpp
 	$(CXX) $(CXXFLAGS) $< -o $@
 
+
+qB2 : addTwoArrays.cu
+	${NVCC} $< -c -o $@ $(OPTIONS)
+
 #######################################################################
 ## Expanded Kernel, notice that FOOTPRINT_SIZE is redefined (from 16 to 32)
 ### matmultKernel01.o : matmultKernel01.cu matmultKernel.h

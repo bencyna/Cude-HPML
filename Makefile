@@ -75,11 +75,11 @@ qB3 : addTwoArraysManaged.cu
 
 #######################################################################
 ## Expanded Kernel, notice that FOOTPRINT_SIZE is redefined (from 16 to 32)
-### matmultKernel01.o : matmultKernel01.cu matmultKernel.h
-###	${NVCC} $< -c -o $@ $(OPTIONS) -DFOOTPRINT_SIZE=32
-###
-### matmult01 : matmult.cu  matmultKernel.h matmultKernel01.o timer.o
-###	${NVCC} $< matmultKernel01.o -o $@ $(LIB) timer.o $(OPTIONS) -DFOOTPRINT_SIZE=32
+matmultKernel01.o : matmultKernel01.cu matmultKernel.h
+	${NVCC} $< -c -o $@ $(OPTIONS) -DFOOTPRINT_SIZE=32
+
+matmult01 : matmult.cu  matmultKernel.h matmultKernel01.o timer.o
+	${NVCC} $< matmultKernel01.o -o $@ $(LIB) timer.o $(OPTIONS) -DFOOTPRINT_SIZE=32
 
 
 

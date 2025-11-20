@@ -19,7 +19,7 @@ OPTIONS   :=  -O3 -Xcompiler -fPIC
 LDFLAGS   := -Xlinker -no-pie
 
 TAR_FILE_NAME  := BenCynaCUDA1.tar
-EXECS :=  vecadd00 matmult00 matmult01 vecadd01 qB1 qB2 qB3
+EXECS :=  vecadd00 matmult00 matmult01 vecadd01 qB1 qB2 qB3 c1
 all:$(EXECS)
 
 #######################################################################
@@ -81,8 +81,10 @@ matmultKernel01.o : matmultKernel01.cu matmultKernel.h
 matmult01 : matmult.cu  matmultKernel.h matmultKernel01.o timer.o
 	${NVCC} $< matmultKernel01.o -o $@ $(LIB) timer.o $(OPTIONS) -DFOOTPRINT_SIZE=32
 
-
-
+#######################################################################
+# -------------------- Part-C --------------------
+qB2 : addTwoArrays.cu
+	${NVCC} $< -o $@ $(OPTIONS)\
 
 # vecadd.cu intitializes the gpus ready for vector addition
 # vecaddKernal00 hosts the code each thread will execute 

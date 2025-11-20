@@ -133,13 +133,7 @@ int main()
   }
 
 
-  cudnnConvolutionFwdAlgo_t algo;
-  CUDNN_CHECK(cudnnGetConvolutionForwardAlgorithm(
-      handle,
-      xDesc, fDesc, convDesc, yDesc,
-      CUDNN_CONVOLUTION_FWD_PREFER_FASTEST,
-      /*memoryLimitInBytes*/ 0,
-      &algo));
+ cudnnConvolutionFwdAlgo_t algo = CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_PRECOMP_GEMM;
 
   size_t workspace_bytes = 0;
   CUDNN_CHECK(cudnnGetConvolutionForwardWorkspaceSize(

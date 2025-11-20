@@ -90,7 +90,7 @@ c2: c2.cu
 	$(NVCC) $< -o $@ -O3 -Xcompiler -fPIC
 
 c3: c3.cu
-	$(NVCC) $< -o $@ -O3 -Xcompiler -fPIC
+	$(NVCC) $< -o $@ -O3 -Xcompiler -fPIC -lcudnn
 
 # vecadd.cu intitializes the gpus ready for vector addition
 # vecaddKernal00 hosts the code each thread will execute 

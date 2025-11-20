@@ -19,7 +19,7 @@ OPTIONS   :=  -O3 -Xcompiler -fPIC
 LDFLAGS   := -Xlinker -no-pie
 
 TAR_FILE_NAME  := BenCynaCUDA1.tar
-EXECS :=  vecadd00 matmult00 vecadd01 qB1 qB2 qB3
+EXECS :=  vecadd00 matmult00 matmult01 vecadd01 qB1 qB2 qB3
 all:$(EXECS)
 
 #######################################################################

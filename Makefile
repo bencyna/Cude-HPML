@@ -83,7 +83,7 @@ matmult01 : matmult.cu  matmultKernel.h matmultKernel01.o timer.o
 
 #######################################################################
 # -------------------- Part-C --------------------
-c1 : addTwoArrays.cu
+c1 : c1.cu
 	${NVCC} $< -o $@ $(OPTIONS)\
 
 # vecadd.cu intitializes the gpus ready for vector addition

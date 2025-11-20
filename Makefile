@@ -19,7 +19,7 @@ OPTIONS   :=  -O3 -Xcompiler -fPIC
 LDFLAGS   := -Xlinker -no-pie
 
 TAR_FILE_NAME  := BenCynaCUDA1.tar
-EXECS :=  vecadd00 matmult00 matmult01 vecadd01 qB1 qB2 qB3 c1 c2
+EXECS :=  vecadd00 matmult00 matmult01 vecadd01 qB1 qB2 qB3 c1 c2 c3
 all:$(EXECS)
 
 #######################################################################
@@ -87,6 +87,9 @@ c1 : c1.cu
 	${NVCC} $< -o $@ $(OPTIONS)\
 
 c2: c2.cu
+	$(NVCC) $< -o $@ -O3 -Xcompiler -fPIC
+
+c3: c3.cu
 	$(NVCC) $< -o $@ -O3 -Xcompiler -fPIC
 
 # vecadd.cu intitializes the gpus ready for vector addition

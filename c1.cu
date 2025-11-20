@@ -2,101 +2,127 @@
 #include <vector>
 #include <cuda_runtime.h>
 
-#define CUDA_CHECK(ans)                   \
-  {                                       \
-    gpuAssert((ans), __FILE__, __LINE__); \
-  }
+#define CUDA_CHECK(ans) \
+    { gpuAssert((ans), __FILE__, __LINE__); }
 
-inline void gpuAssert(cudaError_t code, const char *file, int line)
+inline void gpuAssert(cudaError_t code, const char* file, int line)
 {
-  if (code != cudaSuccess)
-  {
-    std::cerr << "CUDA Error: " << cudaGetErrorString(code)
-              << " at " << file << ":" << line << std::endl;
-    exit(1);
-  }
+    if (code != cudaSuccess) {
+        std::cerr << "CUDA Error: " << cudaGetErrorString(code)
+                  << " at " << file << ":" << line << std::endl;
+        exit(1);
+    }
 }
 
+// kernel
 __global__ void conv2d_naive(
-    const double *__restrict__ I0,
-    const double *__restrict__ F,
-    double *__restrict__ O,
-    int H, int W, int C, int K);
-
-int main()
+    const double* __restrict__ I0,   
+    const double* __restrict__ F,    
+    double* __restrict__ O,         
+    int H, int W, int C, int K)
 {
-  const int H = 1024, W = 1024, C = 3, K = 64;
-  const int H0 = H + 2, W0 = W + 2;
+    int y = blockIdx.x * blockDim.x + threadIdx.x;  
+    int x = blockIdx.y * blockDim.y + threadIdx.y; 
+    int k = blockIdx.z;                             
 
-  size_t size_I0 = C * H0 * W0 * sizeof(double);
-  size_t size_I = C * H * W * sizeof(double);
-  size_t size_F = K * C * 3 * 3 * sizeof(double);
-  size_t size_O = K * H * W * sizeof(double);
+    if (x >= H || y >= W) return;
 
-  std::vector<double> I(size_I / sizeof(double));
-  std::vector<double> I0(size_I0 / sizeof(double), 0.0);
-  std::vector<double> Fh(size_F / sizeof(double));
-  std::vector<double> Oh(size_O / sizeof(double), 0.0);
+    double acc = 0.0;
 
-  // init I[c,x,y] = c*(x+y)
-  for (int c = 0; c < C; c++)
-    for (int x = 0; x < H; x++)
-      for (int y = 0; y < W; y++)
-        I[(c * H + x) * W + y] = c * (x + y);
+    for (int c = 0; c < C; c++) {
+        for (int j = 0; j < 3; j++) {
+            for (int i = 0; i < 3; i++) {
 
-  // add zero padding
-  for (int c = 0; c < C; c++)
-    for (int x = 0; x < H; x++)
-      for (int y = 0; y < W; y++)
-        I0[(c * H0 + (x + 1)) * W0 + (y + 1)] = I[(c * H + x) * W + y];
+                int fi = 2 - i;  
+                int fj = 2 - j;  
 
-  // init filters: F[k,c,i,j] = (c+k)*(i+j)
-  for (int k = 0; k < K; k++)
+        
+                double fval = F[((k*C + c)*3 + fj)*3 + fi];
+
+        
+                double ival = I0[((c*(H+2) + (x + j))*(W+2)) + (y + i)];
+
+                acc += fval * ival;
+            }
+        }
+    }
+
+
+    O[(k*H + x)*W + y] = acc;
+}
+
+int main() {
+    const int H = 1024, W = 1024, C = 3, K = 64;
+    const int H0 = H + 2, W0 = W + 2;
+
+    size_t size_I0 = (size_t)C * H0 * W0 * sizeof(double);
+    size_t size_I  = (size_t)C * H  * W  * sizeof(double);
+    size_t size_F  = (size_t)K * C * 3 * 3 * sizeof(double);
+    size_t size_O  = (size_t)K * H * W * sizeof(double);
+
+    std::vector<double> I(size_I / sizeof(double));
+    std::vector<double> I0(size_I0 / sizeof(double), 0.0);
+    std::vector<double> Fh(size_F / sizeof(double));
+    std::vector<double> Oh(size_O / sizeof(double), 0.0);
+
+    // init I[c,x,y] = c*(x+y)
     for (int c = 0; c < C; c++)
-      for (int j = 0; j < 3; j++)
-        for (int i = 0; i < 3; i++)
-          Fh[((k * C + c) * 3 + j) * 3 + i] = (c + k) * (i + j);
+        for (int x = 0; x < H; x++)
+            for (int y = 0; y < W; y++)
+                I[(c*H + x)*W + y] = (double)c * (x + y);
 
-  double *d_I0, *d_F, *d_O;
-  CUDA_CHECK(cudaMalloc(&d_I0, size_I0));
-  CUDA_CHECK(cudaMalloc(&d_F, size_F));
-  CUDA_CHECK(cudaMalloc(&d_O, size_O));
+    // padding
+    for (int c = 0; c < C; c++)
+        for (int x = 0; x < H; x++)
+            for (int y = 0; y < W; y++)
+                I0[(c*H0 + (x+1))*W0 + (y+1)] = I[(c*H + x)*W + y];
 
-  CUDA_CHECK(cudaMemcpy(d_I0, I0.data(), size_I0, cudaMemcpyHostToDevice));
-  CUDA_CHECK(cudaMemcpy(d_F, Fh.data(), size_F, cudaMemcpyHostToDevice));
-  CUDA_CHECK(cudaMemset(d_O, 0, size_O));
+    // init F[k,c,i,j] = (c+k)*(i+j)
+    for (int k = 0; k < K; k++)
+        for (int c = 0; c < C; c++)
+            for (int j = 0; j < 3; j++)
+                for (int i = 0; i < 3; i++)
+                    Fh[ ((k*C + c)*3 + j)*3 + i ] = (double)(c + k) * (i + j);
 
-  dim3 block(16, 16);
-  dim3 grid((W + block.x - 1) / block.x,
-            (H + block.y - 1) / block.y,
-            K);
+    double *d_I0, *d_F, *d_O;
+    CUDA_CHECK(cudaMalloc(&d_I0, size_I0));
+    CUDA_CHECK(cudaMalloc(&d_F,  size_F));
+    CUDA_CHECK(cudaMalloc(&d_O,  size_O));
 
-  cudaEvent_t start, stop;
-  cudaEventCreate(&start);
-  cudaEventCreate(&stop);
+    CUDA_CHECK(cudaMemcpy(d_I0, I0.data(), size_I0, cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_F,  Fh.data(), size_F,  cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemset(d_O, 0, size_O));
 
-  cudaEventRecord(start);
+    dim3 block(16, 16);
+    dim3 grid((W + block.x - 1) / block.x,
+              (H + block.y - 1) / block.y,
+              K);
 
-  conv2d_naive<<<grid, block>>>(d_I0, d_F, d_O, H, W, C, K);
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
 
-  cudaEventRecord(stop);
-  cudaEventSynchronize(stop);
+    cudaEventRecord(start);
 
-  float ms = 0.0f;
-  cudaEventElapsedTime(&ms, start, stop); 
+    conv2d_naive<<<grid, block>>>(d_I0, d_F, d_O, H, W, C, K);
 
-  CUDA_CHECK(cudaMemcpy(Oh.data(), d_O, size_O, cudaMemcpyDeviceToHost));
+    cudaEventRecord(stop);
+    cudaEventSynchronize(stop);
 
-  // find checksum
-  double checksum = 0.0;
-  for (double v : Oh)
-    checksum += v;
+    float ms = 0.0f;
+    cudaEventElapsedTime(&ms, start, stop);
 
-  printf("%.4f,%.3f\n", checksum, ms);
+    CUDA_CHECK(cudaMemcpy(Oh.data(), d_O, size_O, cudaMemcpyDeviceToHost));
 
-  cudaFree(d_I0);
-  cudaFree(d_F);
-  cudaFree(d_O);
+    // checksum over O
+    double checksum = 0.0;
+    for (double v : Oh) checksum += v;
 
-  return 0;
+    printf("%.4f,%.3f\n", checksum, ms);
+
+    cudaFree(d_I0);
+    cudaFree(d_F);
+    cudaFree(d_O);
+
+    return 0;
 }

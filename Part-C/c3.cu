@@ -33,18 +33,23 @@ inline void cudnnAssert(cudnnStatus_t status, const char *file, int line)
 
 int main()
 {
-  const int H = 1024, W = 1024, C = 3, K = 64;
-  const int FH = 3, FW = 3;
-  const int N = 1; 
+  const int H = 1024;
+  const int W = 1024;
+  const int C = 3;
+  const int K = 64;
+  const int FH = 3;
+  const int FW = 3;
+  const int N = 1;
 
-  size_t size_I = (size_t)N * C * H * W * sizeof(double);
-  size_t size_F = (size_t)K * C * FH * FW * sizeof(double);
-  size_t size_O = (size_t)N * K * H * W * sizeof(double);
+  size_t bytesInput = (size_t)N * C * H * W * sizeof(double);
+  size_t bytesFilter = (size_t)K * C * FH * FW * sizeof(double);
+  size_t bytesOutput = (size_t)N * K * H * W * sizeof(double);
 
-  std::vector<double> I(size_I / sizeof(double));
-  std::vector<double> Fh(size_F / sizeof(double));
-  std::vector<double> Oh(size_O / sizeof(double), 0.0);
+  std::vector<double> inputHost(bytesInput / sizeof(double));
+  std::vector<double> filterHost(bytesFilter / sizeof(double));
+  std::vector<double> outputHost(bytesOutput / sizeof(double), 0.0);
 
+  // init for input: I[n,c,x,y] = c*(x+y)
   for (int n = 0; n < N; n++)
   {
     for (int c = 0; c < C; c++)
@@ -53,99 +58,103 @@ int main()
       {
         for (int y = 0; y < W; y++)
         {
-          I[((n * C + c) * H + x) * W + y] = (double)c * (x + y);
+          inputHost[((n * C + c) * H + x) * W + y] =
+              (double)c * (x + y);
         }
       }
     }
   }
-
 
   for (int k = 0; k < K; k++)
   {
     for (int c = 0; c < C; c++)
     {
-      for (int j = 0; j < FH; j++)
+      for (int fh = 0; fh < FH; fh++)
       {
-        for (int i = 0; i < FW; i++)
+        for (int fw = 0; fw < FW; fw++)
         {
-          double w = (double)(c + k) * (4.0 - (i + j));
-          Fh[((k * C + c) * FH + j) * FW + i] = w;
+          double weight = (double)(c + k) * (4.0 - (fh + fw));
+          filterHost[((k * C + c) * FH + fh) * FW + fw] = weight;
         }
       }
     }
   }
 
-  double *d_I, *d_F, *d_O;
-  CUDA_CHECK(cudaMalloc(&d_I, size_I));
-  CUDA_CHECK(cudaMalloc(&d_F, size_F));
-  CUDA_CHECK(cudaMalloc(&d_O, size_O));
+  double *d_input = nullptr;
+  double *d_filter = nullptr;
+  double *d_output = nullptr;
 
-  CUDA_CHECK(cudaMemcpy(d_I, I.data(), size_I, cudaMemcpyHostToDevice));
-  CUDA_CHECK(cudaMemcpy(d_F, Fh.data(), size_F, cudaMemcpyHostToDevice));
-  CUDA_CHECK(cudaMemset(d_O, 0, size_O));
+  CUDA_CHECK(cudaMalloc(&d_input, bytesInput));
+  CUDA_CHECK(cudaMalloc(&d_filter, bytesFilter));
+  CUDA_CHECK(cudaMalloc(&d_output, bytesOutput));
 
-  cudnnHandle_t handle;
-  CUDNN_CHECK(cudnnCreate(&handle));
+  CUDA_CHECK(cudaMemcpy(d_input, inputHost.data(), bytesInput, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(d_filter, filterHost.data(), bytesFilter, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemset(d_output, 0, bytesOutput));
 
-  cudnnTensorDescriptor_t xDesc, yDesc;
-  cudnnFilterDescriptor_t fDesc;
+  cudnnHandle_t cudnnHandle;
+  CUDNN_CHECK(cudnnCreate(&cudnnHandle));
+
+  cudnnTensorDescriptor_t inputDesc, outputDesc;
+  cudnnFilterDescriptor_t filterDesc;
   cudnnConvolutionDescriptor_t convDesc;
 
-  CUDNN_CHECK(cudnnCreateTensorDescriptor(&xDesc));
-  CUDNN_CHECK(cudnnCreateTensorDescriptor(&yDesc));
-  CUDNN_CHECK(cudnnCreateFilterDescriptor(&fDesc));
+  CUDNN_CHECK(cudnnCreateTensorDescriptor(&inputDesc));
+  CUDNN_CHECK(cudnnCreateTensorDescriptor(&outputDesc));
+  CUDNN_CHECK(cudnnCreateFilterDescriptor(&filterDesc));
   CUDNN_CHECK(cudnnCreateConvolutionDescriptor(&convDesc));
 
   CUDNN_CHECK(cudnnSetTensor4dDescriptor(
-      xDesc,
+      inputDesc,
       CUDNN_TENSOR_NCHW,
       CUDNN_DATA_DOUBLE,
       N, C, H, W));
 
   CUDNN_CHECK(cudnnSetTensor4dDescriptor(
-      yDesc,
+      outputDesc,
       CUDNN_TENSOR_NCHW,
       CUDNN_DATA_DOUBLE,
       N, K, H, W));
 
   CUDNN_CHECK(cudnnSetFilter4dDescriptor(
-      fDesc,
+      filterDesc,
       CUDNN_DATA_DOUBLE,
       CUDNN_TENSOR_NCHW,
       K, C, FH, FW));
 
   CUDNN_CHECK(cudnnSetConvolution2dDescriptor(
       convDesc,
-      /*pad_h*/ 1, /*pad_w*/ 1,
-      /*u*/ 1, /*v*/ 1,
-      /*dilation_h*/ 1, /*dilation_w*/ 1,
-      CUDNN_CROSS_CORRELATION, 
+      1, 1,
+      1, 1,
+      1, 1,
+      CUDNN_CROSS_CORRELATION,
       CUDNN_DATA_DOUBLE));
 
-  int nOut, cOut, hOut, wOut;
+  // check
+  int outN, outC, outH, outW;
   CUDNN_CHECK(cudnnGetConvolution2dForwardOutputDim(
-      convDesc, xDesc, fDesc, &nOut, &cOut, &hOut, &wOut));
-  if (nOut != N || cOut != K || hOut != H || wOut != W)
+      convDesc, inputDesc, filterDesc, &outN, &outC, &outH, &outW));
+  if (outN != N || outC != K || outH != H || outW != W)
   {
     std::cerr << "Unexpected output dims: "
-              << nOut << "," << cOut << "," << hOut << "," << wOut << "\n";
+              << outN << "," << outC << "," << outH << "," << outW << "\n";
     return 1;
   }
 
+  cudnnConvolutionFwdAlgo_t fwdAlgo =
+      CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_PRECOMP_GEMM;
 
- cudnnConvolutionFwdAlgo_t algo = CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_PRECOMP_GEMM;
-
-  size_t workspace_bytes = 0;
+  size_t workspaceBytes = 0;
   CUDNN_CHECK(cudnnGetConvolutionForwardWorkspaceSize(
-      handle,
-      xDesc, fDesc, convDesc, yDesc,
-      algo,
-      &workspace_bytes));
+      cudnnHandle,
+      inputDesc, filterDesc, convDesc, outputDesc,
+      fwdAlgo,
+      &workspaceBytes));
 
   void *d_workspace = nullptr;
-  if (workspace_bytes > 0)
+  if (workspaceBytes > 0)
   {
-    CUDA_CHECK(cudaMalloc(&d_workspace, workspace_bytes));
+    CUDA_CHECK(cudaMalloc(&d_workspace, workspaceBytes));
   }
 
   const double alpha = 1.0;
@@ -158,42 +167,43 @@ int main()
   cudaEventRecord(start);
 
   CUDNN_CHECK(cudnnConvolutionForward(
-      handle,
+      cudnnHandle,
       &alpha,
-      xDesc, d_I,
-      fDesc, d_F,
+      inputDesc, d_input,
+      filterDesc, d_filter,
       convDesc,
-      algo,
-      d_workspace, workspace_bytes,
+      fwdAlgo,
+      d_workspace, workspaceBytes,
       &beta,
-      yDesc, d_O));
+      outputDesc, d_output));
 
   cudaEventRecord(stop);
   cudaEventSynchronize(stop);
 
-  float ms = 0.0f;
-  cudaEventElapsedTime(&ms, start, stop);
+  float elapsedMs = 0.0f;
+  cudaEventElapsedTime(&elapsedMs, start, stop);
 
-  CUDA_CHECK(cudaMemcpy(Oh.data(), d_O, size_O, cudaMemcpyDeviceToHost));
+  CUDA_CHECK(cudaMemcpy(outputHost.data(), d_output, bytesOutput, cudaMemcpyDeviceToHost));
 
   double checksum = 0.0;
-  for (double v : Oh)
+  for (double v : outputHost)
+  {
     checksum += v;
+  }
 
-
-  printf("%.4f,%.3f\n", checksum, ms);
+  printf("%.4f,%.3f\n", checksum, elapsedMs);
 
   if (d_workspace)
     cudaFree(d_workspace);
-  cudaFree(d_I);
-  cudaFree(d_F);
-  cudaFree(d_O);
+  cudaFree(d_input);
+  cudaFree(d_filter);
+  cudaFree(d_output);
 
   cudnnDestroyConvolutionDescriptor(convDesc);
-  cudnnDestroyFilterDescriptor(fDesc);
-  cudnnDestroyTensorDescriptor(xDesc);
-  cudnnDestroyTensorDescriptor(yDesc);
-  cudnnDestroy(handle);
+  cudnnDestroyFilterDescriptor(filterDesc);
+  cudnnDestroyTensorDescriptor(inputDesc);
+  cudnnDestroyTensorDescriptor(outputDesc);
+  cudnnDestroy(cudnnHandle);
 
   return 0;
 }

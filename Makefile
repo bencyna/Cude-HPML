@@ -14,6 +14,7 @@ CXXFLAGS := -O3
 
 LIB       :=  -L$(SDK_INSTALL_PATH)/lib64 -L$(SDK_INSTALL_PATH)/samples/common/lib/linux/x86_64
 #INCLUDES  :=  -I$(SDK_INSTALL_PATH)/include -I$(SDK_INSTALL_PATH)/samples/common/inc
+INCLUDES := -IPart-A
 OPTIONS   :=  -O3 -Xcompiler -fPIC  
 #--maxrregcount=100 --ptxas-options -v 
 LDFLAGS   := -Xlinker -no-pie

@@ -2,11 +2,11 @@
 #include <vector>
 #include <cuda_runtime.h>
 
-// error check
 #define CUDA_CHECK(ans)                   \
   {                                       \
     gpuAssert((ans), __FILE__, __LINE__); \
   }
+
 inline void gpuAssert(cudaError_t code, const char *file, int line)
 {
   if (code != cudaSuccess)
@@ -19,21 +19,22 @@ inline void gpuAssert(cudaError_t code, const char *file, int line)
 
 #define FILTER_H 3
 #define FILTER_W 3
-#define CHANNELS 3
+
 #define TILE_SIZE 16
+#define CHANNELS 3  
 
 __global__ void conv2d_tiled(
-    const double *__restrict__ paddedInput,
-    const double *__restrict__ filters,
-    double *__restrict__ output,
+    const double *__restrict__ paddedInput,  
+    const double *__restrict__ filters,      
+    double *__restrict__ output,             
     int H, int W, int C, int K)
 {
-  int threadCol = threadIdx.x;
-  int threadRow = threadIdx.y;
+  int threadCol = threadIdx.x;  
+  int threadRow = threadIdx.y;  
 
-  int outCol = blockIdx.x * TILE_SIZE + threadCol;
-  int outRow = blockIdx.y * TILE_SIZE + threadRow;
-  int filterIndex = blockIdx.z;
+  int outCol = blockIdx.x * TILE_SIZE + threadCol;  
+  int outRow = blockIdx.y * TILE_SIZE + threadRow;  
+  int filterIndex = blockIdx.z;                    
 
   const int paddedH = H + 2;
   const int paddedW = W + 2;
@@ -41,15 +42,14 @@ __global__ void conv2d_tiled(
   int tileInputRow0 = blockIdx.y * TILE_SIZE;
   int tileInputCol0 = blockIdx.x * TILE_SIZE;
 
-  __shared__ double tileInput[C][TILE_SIZE + 2][TILE_SIZE + 2];
+  __shared__ double tileInput[CHANNELS][TILE_SIZE + 2][TILE_SIZE + 2];
 
-  for (int channel = 0; channel < C; channel++)
+  for (int channel = 0; channel < CHANNELS; channel++)
   {
     for (int localRow = threadRow; localRow < TILE_SIZE + 2; localRow += blockDim.y)
     {
       for (int localCol = threadCol; localCol < TILE_SIZE + 2; localCol += blockDim.x)
       {
-
         int globalRow = tileInputRow0 + localRow;
         int globalCol = tileInputCol0 + localCol;
 
@@ -81,7 +81,6 @@ __global__ void conv2d_tiled(
     {
       for (int fw = 0; fw < FILTER_W; fw++)
       {
-
         int filterRow = FILTER_H - 1 - fh;
         int filterCol = FILTER_W - 1 - fw;
 
@@ -101,19 +100,18 @@ __global__ void conv2d_tiled(
 
 int main()
 {
-
   const int H = 1024, W = 1024, C = 3, K = 64;
   const int paddedH = H + 2, paddedW = W + 2;
 
-  size_t bytesInput = (size_t)C * H * W * sizeof(double);
-  size_t bytesPaddedInput = (size_t)C * paddedH * paddedW * sizeof(double);
-  size_t bytesFilters = (size_t)K * C * FILTER_H * FILTER_W * sizeof(double);
-  size_t bytesOutput = (size_t)K * H * W * sizeof(double);
+  size_t bytesInput        = (size_t)C * H * W * sizeof(double);
+  size_t bytesPaddedInput  = (size_t)C * paddedH * paddedW * sizeof(double);
+  size_t bytesFilters      = (size_t)K * C * FILTER_H * FILTER_W * sizeof(double);
+  size_t bytesOutput       = (size_t)K * H * W * sizeof(double);
 
-  std::vector<double> input(bytesInput / sizeof(double));
-  std::vector<double> inputPadded(bytesPaddedInput / sizeof(double), 0.0);
-  std::vector<double> filterValues(bytesFilters / sizeof(double));
-  std::vector<double> outputHost(bytesOutput / sizeof(double), 0.0);
+  std::vector<double> input        (bytesInput       / sizeof(double));
+  std::vector<double> inputPadded  (bytesPaddedInput / sizeof(double), 0.0);
+  std::vector<double> filterValues (bytesFilters     / sizeof(double));
+  std::vector<double> outputHost   (bytesOutput      / sizeof(double), 0.0);
 
   for (int c = 0; c < C; c++)
     for (int x = 0; x < H; x++)
@@ -133,13 +131,16 @@ int main()
           filterValues[((k * C + c) * FILTER_H + fh) * FILTER_W + fw] =
               (double)(c + k) * (fh + fw);
 
-  double *d_paddedInput, *d_filters, *d_output;
+  double *d_paddedInput = nullptr;
+  double *d_filters     = nullptr;
+  double *d_output      = nullptr;
+
   CUDA_CHECK(cudaMalloc(&d_paddedInput, bytesPaddedInput));
-  CUDA_CHECK(cudaMalloc(&d_filters, bytesFilters));
-  CUDA_CHECK(cudaMalloc(&d_output, bytesOutput));
+  CUDA_CHECK(cudaMalloc(&d_filters,     bytesFilters));
+  CUDA_CHECK(cudaMalloc(&d_output,      bytesOutput));
 
   CUDA_CHECK(cudaMemcpy(d_paddedInput, inputPadded.data(), bytesPaddedInput, cudaMemcpyHostToDevice));
-  CUDA_CHECK(cudaMemcpy(d_filters, filterValues.data(), bytesFilters, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(d_filters,     filterValues.data(), bytesFilters,    cudaMemcpyHostToDevice));
   CUDA_CHECK(cudaMemset(d_output, 0, bytesOutput));
 
   dim3 blockDim(TILE_SIZE, TILE_SIZE);

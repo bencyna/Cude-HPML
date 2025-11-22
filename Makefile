@@ -28,69 +28,71 @@ clean:
 
 #######################################################################
 tar:
-	tar -cvf $(TAR_FILE_NAME) Makefile *.h *.cu *.cpp *.pdf *.txt
+	tar -cvf $(TAR_FILE_NAME) \
+		Makefile report.pdf \
+		Part-A/*.cu Part-A/*.h \
+		Part-B/*.cpp Part-B/*.cu Part-B/*.py \
+		Part-C/*.cu
 #######################################################################
 
-timer.o : timer.cu timer.h
-	${NVCC} $< -c -o $@ $(OPTIONS)
+timer.o: Part-A/timer.cu Part-A/timer.h
+	$(NVCC) -c $< -o $@ $(OPTIONS)
 
 #######################################################################
-vecaddKernel00.o : vecaddKernel00.cu
-	${NVCC} $< -c -o $@ $(OPTIONS)
+vecaddKernel00.o: Part-A/vecaddKernel00.cu
+	$(NVCC) -c $< -o $@ $(OPTIONS)
 
-vecadd00 : vecadd.cu vecaddKernel.h vecaddKernel00.o timer.o
-	${NVCC} $< vecaddKernel00.o -o $@ $(LIB) timer.o $(OPTIONS)
+vecadd00: Part-A/vecadd.cu Part-A/vecaddKernel.h vecaddKernel00.o timer.o
+	$(NVCC) Part-A/vecadd.cu vecaddKernel00.o -o $@ $(LIB) timer.o $(OPTIONS)
 
 
 #######################################################################
-vecaddKernel01.o : vecaddKernel01.cu
-	${NVCC} $< -c -o $@ $(OPTIONS)
+vecaddKernel01.o: Part-A/vecaddKernel01.cu
+	$(NVCC) -c $< -o $@ $(OPTIONS)
 
-vecadd01 : vecadd.cu vecaddKernel.h vecaddKernel01.o timer.o
-	${NVCC} $< vecaddKernel01.o -o $@ $(LIB) timer.o $(OPTIONS)
+vecadd01: Part-A/vecadd.cu Part-A/vecaddKernel.h vecaddKernel01.o timer.o
+	$(NVCC) Part-A/vecadd.cu vecaddKernel01.o -o $@ $(LIB) timer.o $(OPTIONS)
 
 
 #######################################################################
 ## Provided Kernel
-matmultKernel00.o : matmultKernel00.cu matmultKernel.h 
-	${NVCC} $< -c -o $@ $(OPTIONS)
+matmultKernel00.o: Part-A/matmultKernel00.cu Part-A/matmultKernel.h
+	$(NVCC) -c $< -o $@ $(OPTIONS)
 
-matmult00 : matmult.cu  matmultKernel.h matmultKernel00.o timer.o
-	${NVCC} $< matmultKernel00.o -o $@ $(LIB) timer.o $(OPTIONS)
+matmult00: Part-A/matmult.cu Part-A/matmultKernel.h matmultKernel00.o timer.o
+	$(NVCC) Part-A/matmult.cu matmultKernel00.o -o $@ $(LIB) timer.o $(OPTIONS)
 
 #######################################################################
 # -------------------- Part-B Q1: CPU add two arrays --------------------
 # q1.cpp -> q1 (no CUDA libs; pure C++)
-qB1 : q1.cpp
+qB1: Part-B/q1.cpp
 	$(CXX) $(CXXFLAGS) $< -o $@
 
+qB2: Part-B/q2.cu
+	$(NVCC) $< -o $@ $(OPTIONS)
 
-qB2 : q2.cu
-	${NVCC} $< -o $@ $(OPTIONS)\
-
-qB3 : q3.cu
-	${NVCC} $< -o $@ $(OPTIONS)
-
+qB3: Part-B/q3.cu
+	$(NVCC) $< -o $@ $(OPTIONS)
 
 
 #######################################################################
 ## Expanded Kernel, notice that FOOTPRINT_SIZE is redefined (from 16 to 32)
-matmultKernel01.o : matmultKernel01.cu matmultKernel.h
-	${NVCC} $< -c -o $@ $(OPTIONS) -DFOOTPRINT_SIZE=32
+matmultKernel01.o: Part-A/matmultKernel01.cu Part-A/matmultKernel.h
+	$(NVCC) -c $< -o $@ $(OPTIONS) -DFOOTPRINT_SIZE=32
 
-matmult01 : matmult.cu  matmultKernel.h matmultKernel01.o timer.o
-	${NVCC} $< matmultKernel01.o -o $@ $(LIB) timer.o $(OPTIONS) -DFOOTPRINT_SIZE=32
+matmult01: Part-A/matmult.cu Part-A/matmultKernel.h matmultKernel01.o timer.o
+	$(NVCC) Part-A/matmult.cu matmultKernel01.o -o $@ $(LIB) timer.o $(OPTIONS) -DFOOTPRINT_SIZE=32	
 
 #######################################################################
 # -------------------- Part-C --------------------
-c1 : c1.cu
-	${NVCC} $< -o $@ $(OPTIONS)\
+c1: Part-C/c1.cu
+	$(NVCC) $< -o $@ $(OPTIONS)
 
-c2: c2.cu
-	$(NVCC) $< -o $@ -O3 -Xcompiler -fPIC
+c2: Part-C/c2.cu
+	$(NVCC) $< -o $@ $(OPTIONS)
 
-c3: c3.cu
-	$(NVCC) $< -o $@ -O3 -Xcompiler -fPIC -lcudnn
+c3: Part-C/c3.cu
+	$(NVCC) $< -o $@ $(OPTIONS) -lcudnn
 
 # vecadd.cu intitializes the gpus ready for vector addition
 # vecaddKernal00 hosts the code each thread will execute 

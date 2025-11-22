@@ -19,6 +19,8 @@ inline void gpuAssert(cudaError_t code, const char *file, int line)
 
 #define FILTER_H 3
 #define FILTER_W 3
+#define CHANNELS 3
+#define TILE_SIZE 16
 
 __global__ void conv2d_tiled(
     const double *__restrict__ paddedInput,

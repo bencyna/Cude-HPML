@@ -1,4 +1,4 @@
-e///
+///
 /// matmultKernel00.cu
 /// For COMS E6998 Spring 2023
 /// Instructor: Parajit Dube and Kaoutar El Maghraoui

@@ -61,14 +61,14 @@ matmult00 : matmult.cu  matmultKernel.h matmultKernel00.o timer.o
 #######################################################################
 # -------------------- Part-B Q1: CPU add two arrays --------------------
 # q1.cpp -> q1 (no CUDA libs; pure C++)
-qB1 : addTwoArrays.cpp
+qB1 : q1.cpp
 	$(CXX) $(CXXFLAGS) $< -o $@
 
 
-qB2 : addTwoArrays.cu
+qB2 : q2.cu
 	${NVCC} $< -o $@ $(OPTIONS)\
 
-qB3 : addTwoArraysManaged.cu
+qB3 : q3.cu
 	${NVCC} $< -o $@ $(OPTIONS)
 
 
